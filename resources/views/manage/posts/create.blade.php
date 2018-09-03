@@ -81,7 +81,8 @@
             el: '#app',
             data: {
                 title:'',
-                slug: '2'
+                slug: '',
+                api_token: '{{Auth::user()->api_token}}'
             },
             methods: {
                 updateSlug: function (val) {

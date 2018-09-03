@@ -1,27 +1,26 @@
 <style scoped>
+.slug-widget {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
 
-    .slug-widget {
-        display: flex;
-        justify-content: flex-start;
-        align-items: center;
-    }
+.wrapper {
+  margin-left: 8px;
+}
 
-    .wrapper {
-        margin-left: 8px;
-    }
-
-    .slug {
-        background-color: yellow;
-        padding:3px
-    }
-    .input {
-        width:auto;
-    }
-    .url-wrapper {
-        display:flex;
-        align-items:center;
-        height:28px
-    }
+.slug {
+  background-color: yellow;
+  padding: 3px;
+}
+.input {
+  width: auto;
+}
+.url-wrapper {
+  display: flex;
+  align-items: center;
+  height: 28px;
+}
 </style>
 
 <template>
@@ -45,61 +44,82 @@
 </template>
 
 <script>
-    export default {
-        props:{
-           url: {
-              type: String,
-              required: true,
-           },
-           subdirectory: {
-              type:String,
-               required:true
-           },
-           title: {
-               type:String,
-               required:true
-           }
-        },
-        data:function (){
-          return {
-              slug: this.convertTitle(),
-              isEditing:false,
-              customSlug:'',
-              wasEdited:false
-          }
-        },
-        methods: {
-            convertTitle: function() {
-                return Slug(this.title)
-            },
-            editSlug: function() {
-                this.customSlug = this.slug;
-                this.isEditing = true;
-            },
-            resetEditing:function(){
-                this.slug = this.convertTitle();
-                this.wasEdited = false;
-                this.isEditing = false;
-            },
-            saveSlug: function(){
-                if(this.customSlug !== this.slug){
-                    this.wasEdited = true;
-                }
-                this.slug = Slug(this.customSlug);
-                this.isEditing = false;
-                this.wasEdited = true;
-            }
-        },
-        watch: {
-            title: _.debounce(function(){
-                if(!this.wasEdited){
-                    this.slug = this.convertTitle()
-                  }
-                },250),
-            slug: function (val) {
-                this.$emit.event('slug-changed', this.slug)
-            }
-
-        }
+export default {
+  props: {
+    url: {
+      type: String,
+      required: true
+    },
+    subdirectory: {
+      type: String,
+      required: true
+    },
+    title: {
+      type: String,
+      required: true
     }
+  },
+  data: function() {
+    return {
+      slug: this.setSlug(this.title),
+      isEditing: false,
+      customSlug: "",
+      wasEdited: false,
+      api_token: this.$root.api_token
+    };
+  },
+  methods: {
+    editSlug: function() {
+      this.customSlug = this.slug;
+      this.$emit("edit", this.slug);
+      this.isEditing = true;
+    },
+    resetEditing: function() {
+      this.setSlug(this.title);
+      this.$emit("reset", this.slug);
+      this.wasEdited = false;
+      this.isEditing = false;
+    },
+    saveSlug: function() {
+      if (this.customSlug !== this.slug) {
+        this.wasEdited = true;
+      }
+      this.setSlug(this.customSlug);
+      this.$emit("save", this.slug);
+      this.isEditing = false;
+    },
+    setSlug: function(newVal, count = 0) {
+      let slug = Slug(newVal + (count > 0 ? `-${count}` : ""));
+      let vm = this;
+
+      if (this.api_token && slug) {
+        axios
+          .get("/api/posts/unique", {
+            params: {
+              api_token: vm.api_token,
+              slug: slug
+            }
+          })
+          .then(function(response) {
+            if (response.data) {
+              vm.slug = slug;
+              vm.$emit("slug-changed", slug);
+            } else {
+              vm.setSlug(newVal, count + 1);
+            }
+          })
+          .catch(function(error) {
+            console.log(error);
+          });
+      }
+    }
+  },
+  watch: {
+    title: _.debounce(function() {
+      if (!this.wasEdited) {
+        this.setSlug(this.title);
+      }
+    }, 500)
+  }
+};
 </script>
